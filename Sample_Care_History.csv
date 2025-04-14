@@ -1,0 +1,6 @@
+PatientID,Code,CodeTerm,EffectiveDate,Value,Unit
+101,195967001,Asthma,2022-05-15,,
+101,73211009,Diabetes mellitus,2021-01-20,55,mmol/mol
+102,419474003,ECG finding,2023-01-10,,
+103,271737000,Hypertension,2019-11-01,145/92,mmHg
+105,386661006,Fever,2023-03-01,38.5,C 

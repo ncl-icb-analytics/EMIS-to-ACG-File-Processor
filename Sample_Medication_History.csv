@@ -1,0 +1,6 @@
+PatientID,DrugCode,DrugName,IssueDate,Quantity,Dosage
+101,322237006,Salbutamol inhaler,2023-02-10,1,2 puffs QDS
+101,318774007,Metformin tablets,2023-01-22,56,500mg BD
+102,320040005,Aspirin tablets,2023-01-11,28,75mg OD
+103,319315009,Amlodipine tablets,2022-12-05,28,5mg OD
+104,322237006,Salbutamol inhaler,2023-03-01,1,2 puffs PRN 

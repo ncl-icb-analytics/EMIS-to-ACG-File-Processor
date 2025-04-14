@@ -1,0 +1,6 @@
+PatientID,ConditionCode,ConditionName,OnsetDate,ResolvedDate
+101,195967001,Asthma,2018-03-10,
+101,73211009,Diabetes mellitus Type 2,2021-01-20,
+102,414916001,Obesity,2020-07-01,
+103,271737000,Essential hypertension,2019-11-01,
+105,195967001,Asthma,2015-02-22, 
