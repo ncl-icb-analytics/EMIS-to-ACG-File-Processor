@@ -4,6 +4,8 @@ This application provides a graphical user interface (GUI) to process clinical d
 
 **Disclaimer:** This repository and the associated application are not affiliated with, endorsed by, or connected to The Johns Hopkins University or the Johns Hopkins ACG® System in any way. ACG® is a registered trademark of The Johns Hopkins University.
 
+![1744725177608](image/README/1744725177608.png)
+
 ## Features
 
 * GUI for easy file selection and processing initiation.

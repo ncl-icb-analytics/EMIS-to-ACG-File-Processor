@@ -41,3 +41,15 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
 )
+
+# Add the COLLECT step for --onedir mode
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='EMIS_ACG_Processor',
+)
