@@ -31,8 +31,8 @@ This application provides a graphical user interface (GUI) to process clinical d
 
 1. **Clone the Repository (if applicable):**
    ```bash
-   git clone <repository-url>
-   cd file_combiner
+   git clone https://github.com/ncl-icb-analytics/EMIS-to-ACG-File-Processor
+   cd EMIS-to-ACG-File-Processor
    ```
 2. **Create a Virtual Environment:**
    ```bash
