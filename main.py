@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 import pandas as pd
 from collections import defaultdict
+import functools # Import functools
 
 # Attempt to import necessary modules, provide guidance if missing
 try:
@@ -205,6 +206,24 @@ STYLESHEET = """
         background-color: #495057; /* Even darker grey */
     }
     /* Disabled state is handled by the general QPushButton:disabled rule */
+
+    /* --- Remove Button Style --- */
+    QPushButton#RemoveButton {
+        font-family: "Consolas", monospace;
+        font-weight: bold;
+        max-width: 20px; /* Small button */
+        min-height: 18px;
+        padding: 1px 1px;
+        background-color: #adb5bd; /* Grey */
+        color: #ffffff;
+        border-radius: 3px;
+    }
+    QPushButton#RemoveButton:hover {
+        background-color: #dc3545; /* Red */
+    }
+    QPushButton#RemoveButton:pressed {
+        background-color: #c82333; /* Darker Red */
+    }
 """
 
 # --- Logging Handler ---
@@ -374,10 +393,6 @@ class MainWindow(QMainWindow):
         self.file_status_layout = QVBoxLayout(self.file_status_content)
         self.file_status_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.file_status_layout.setContentsMargins(5, 5, 5, 5) # Padding inside status area
-        self.file_status_label = QLabel("No files added yet.")
-        self.file_status_label.setObjectName("FileStatusLabel")
-        self.file_status_label.setWordWrap(True)
-        self.file_status_layout.addWidget(self.file_status_label)
         self.file_status_area.setWidget(self.file_status_content)
         input_section_layout.addWidget(self.file_status_area, 0) # Set stretch factor to 0
 
@@ -446,21 +461,25 @@ class MainWindow(QMainWindow):
             logging.info(f"Application ready. Drop or browse for {self.expected_file_count} required input files.")
 
     def _identify_file_type(self, filepath):
-        """Identifies the configuration key based on file columns."""
+        """Identifies the configuration key based on file columns (case-insensitive)."""
         if not self.config_column_sets: return None, "Config error"
         try:
             df_header = pd.read_csv(filepath, nrows=0, dtype=str)
-            file_columns = set(df_header.columns)
+            # Convert actual file columns to lowercase set
+            file_columns_lower = {col.lower() for col in df_header.columns}
             possible_matches = []
             for key, config_cols in self.config_column_sets.items():
-                if file_columns == config_cols:
+                # Convert configured columns to lowercase set for comparison
+                config_cols_lower = {col.lower() for col in config_cols}
+                if file_columns_lower == config_cols_lower:
                     possible_matches.append(key)
             if len(possible_matches) == 1:
                 return possible_matches[0], None
             elif len(possible_matches) > 1:
                 return None, f"Matches multiple types: {possible_matches}"
             else:
-                return None, "Columns do not match any required type"
+                error_detail = [f"{col} not found in {key}" for col in file_columns_lower if col not in config_cols_lower]
+                return None, f"Columns do not match any required type ({'; '.join(error_detail)})"
         except FileNotFoundError:
             return None, "File not found"
         except pd.errors.EmptyDataError:
@@ -469,23 +488,68 @@ class MainWindow(QMainWindow):
             logging.error(f"Error reading header from {filepath}: {e}")
             return None, f"Error reading header (check format/permissions)"
 
+    def _clear_layout(self, layout):
+        """Helper function to remove all widgets from a layout."""
+        if layout is not None:
+            while layout.count():
+                item = layout.takeAt(0)
+                widget = item.widget()
+                if widget is not None:
+                    widget.deleteLater()
+                else:
+                    child_layout = item.layout()
+                    if child_layout is not None:
+                        self._clear_layout(child_layout)
+                        # Optionally delete the layout itself if it's dynamically created
+                        # child_layout.deleteLater() # Be cautious with this
+
     def _update_file_status_display(self):
-        """Updates the file status display (strategy text removed)."""
+        """Dynamically builds the file status display with remove buttons."""
+        self._clear_layout(self.file_status_layout) # Clear previous widgets
+
         if self.expected_file_count < 0: # Config error
-            self.file_status_label.setText("<font color='red'>Configuration Error!</font>")
+            error_label = QLabel("<font color='red'>Configuration Error!</font>")
+            self.file_status_layout.addWidget(error_label)
             return
 
-        # Update File Status
-        status_lines = []
-        all_files_present = True
+        if not self.all_config_keys:
+             no_keys_label = QLabel("No input files defined in config.")
+             self.file_status_layout.addWidget(no_keys_label)
+             return
+
+        # Dynamically create rows for each file type
         for key in sorted(list(self.all_config_keys)):
+            row_layout = QHBoxLayout()
+            row_layout.setSpacing(10)
+
+            type_label = QLabel(f"<b>{key.replace('_',' ')}:</b>")
+            type_label.setFixedWidth(150) # Fixed width for alignment
+            row_layout.addWidget(type_label)
+
             if key in self.added_files:
                 filename = os.path.basename(self.added_files[key])
-                status_lines.append(f"<b>{key}:</b> <font color='green'>Added</font> ({filename})")
+                status_label = QLabel(f"<font color='green'>Added:</font> {filename}")
+                status_label.setToolTip(self.added_files[key]) # Show full path on hover
+                row_layout.addWidget(status_label, 1) # Allow status label to stretch
+
+                remove_button = QPushButton("X")
+                remove_button.setObjectName("RemoveButton")
+                remove_button.setToolTip(f"Remove {filename}")
+                # Use partial to pass the key to the remove function
+                remove_button.clicked.connect(functools.partial(self.remove_input_file, key))
+                row_layout.addWidget(remove_button)
             else:
-                status_lines.append(f"<b>{key}:</b> <font color='#F57C00'>Needed</font>")
-                all_files_present = False
-        self.file_status_label.setText("<br>".join(status_lines))
+                status_label = QLabel("<font color='#F57C00'>Needed</font>")
+                row_layout.addWidget(status_label, 1) # Allow status label to stretch
+                # Add a spacer to keep alignment consistent with rows that have a button
+                spacer = QWidget()
+                spacer.setFixedWidth(22) # Approximate width of remove button + spacing
+                row_layout.addWidget(spacer)
+
+            self.file_status_layout.addLayout(row_layout)
+
+        # Add stretch at the end to push rows to the top
+        self.file_status_layout.addStretch(1)
 
     def _process_file_addition(self, path):
         """Handles the logic for adding a single file (from drop or browse)."""
@@ -512,6 +576,18 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "File Identification Error",
                                 f"Could not identify file: {os.path.basename(path)}\nReason: {error}")
             return False
+
+    @Slot(str) # Add Slot decorator and type hint
+    def remove_input_file(self, file_key_to_remove):
+        """Removes a file from the added list and updates the UI."""
+        if file_key_to_remove in self.added_files:
+            removed_path = self.added_files.pop(file_key_to_remove)
+            logging.info(f"Removed file for type '{file_key_to_remove}': {os.path.basename(removed_path)}")
+            self.last_successful_output_dir = None # Reset success state
+            self._update_file_status_display() # Refresh the list
+            self.update_ui_state() # Update button enable states
+        else:
+            logging.warning(f"Attempted to remove file key '{file_key_to_remove}' which was not found in added files.")
 
     # --- Drag and Drop Events --- #
     def dragEnterEvent(self, event: QDragEnterEvent):
@@ -657,6 +733,12 @@ class MainWindow(QMainWindow):
             msg_box.setStyleSheet("QMessageBox { background-color: #ffffff; color: #000000; } QLabel { background-color: #ffffff; color: #000000; }")
             msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
             msg_box.exec() # Modal call
+
+            # Clear inputs after successful processing
+            logging.info("Processing successful. Clearing input file list.")
+            self.added_files.clear()
+            self._update_file_status_display() # Update the list display
+
         else:
             self.last_successful_output_dir = None
             # Create and show error message box
@@ -722,6 +804,8 @@ class MainWindow(QMainWindow):
         # Reference the filename used in the message, not the potentially long full path
         html_content = f"<p>This tool processes data based on definitions in <b>{mapping_filename}</b>.</p>"
         html_content += "<p><b>Required file types, expected columns, and sample content:</b></p>"
+        # Add note about case-insensitivity
+        html_content += "<p><i>(Note: Column matching is case-insensitive)</i></p>"
 
         # Define static sample data (adjust as needed for representativeness)
         sample_data = {
@@ -795,7 +879,7 @@ class MainWindow(QMainWindow):
                         sample_str = sample_df.to_string(index=False, header=True)
                         # Removed <br> here to reduce gap
                         details_html += "&nbsp;&nbsp;- Sample Content:"
-                        details_html += f"<pre style='margin-left: 20px; background-color: #e9ecef; padding: 5px; border: 1px solid #ced4da; font-size: 8pt;'>{sample_str}</pre>"
+                        details_html += f"<pre style='margin-left: 20px; background-color: #e9ecef; padding: 5px; border: 1px solid #ced4da;'>{sample_str}</pre>"
                     except Exception as sample_err:
                         logger.warning(f"Could not generate sample preview for {key}: {sample_err}")
                         details_html += "&nbsp;&nbsp;- <i>Could not generate sample preview.</i><br>"
@@ -808,7 +892,6 @@ class MainWindow(QMainWindow):
                  details_html = "<p>Could not extract column details from mapping file.</p>"
 
             html_content += details_html
-            html_content += "<br><p><i>Note: Files are identified by matching these columns, not by filename.</i></p>"
 
             # Create, style, and display QMessageBox
             msg_box = QMessageBox(self)

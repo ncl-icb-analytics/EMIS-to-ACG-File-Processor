@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 import logging
+import sys
 from datetime import datetime
 from collections import defaultdict
 import config
@@ -533,29 +534,37 @@ def generate_acg_files(input_data_dict, output_dir):
     output_files_generated = []
     generation_successful = True
 
+    # --- Determine Base Path for Data Files (like mapping.csv) ---
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        # Running as packaged executable
+        base_path = sys._MEIPASS
+    else:
+        # Running as script
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    # --- End Base Path Determination ---
+
     # --- Load Mapping File --- #
-    mapping_filepath = 'mapping.csv'
+    mapping_filename = 'mapping.csv'
+    mapping_filepath = os.path.join(base_path, mapping_filename)
     mapping_df = None
     try:
         logger.info(f"Loading mapping configuration from: {mapping_filepath}")
         mapping_df = pd.read_csv(mapping_filepath, dtype=str)
-        # Basic validation: Check for essential columns
         required_cols = ['InputConfigKey', 'InputColumn', 'TargetACGFile', 'TargetACGColumn']
         if not all(col in mapping_df.columns for col in required_cols):
             missing = set(required_cols) - set(mapping_df.columns)
             raise ValueError(f"Mapping CSV is missing required columns: {missing}")
-        # Fill NaN in optional columns (TransformationFunction, SourceLabel) with empty strings
         mapping_df['TransformationFunction'] = mapping_df['TransformationFunction'].fillna('')
         mapping_df['SourceLabel'] = mapping_df['SourceLabel'].fillna('')
-        logger.info(f"Loaded {len(mapping_df)} mapping rows from {mapping_filepath}")
+        logger.info(f"Loaded {len(mapping_df)} mapping rows from {mapping_filename}")
     except FileNotFoundError:
-        logger.error(f"CRITICAL: Mapping file '{mapping_filepath}' not found. Cannot proceed.")
-        raise RuntimeError(f"Mapping file '{mapping_filepath}' not found.")
+        logger.error(f"CRITICAL: Mapping file '{mapping_filename}' not found at expected location: {mapping_filepath}. Cannot proceed.")
+        raise RuntimeError(f"Mapping file '{mapping_filename}' not found at: {mapping_filepath}")
     except ValueError as ve:
-        logger.error(f"CRITICAL: Invalid mapping file '{mapping_filepath}': {ve}")
+        logger.error(f"CRITICAL: Invalid mapping file '{mapping_filename}': {ve}")
         raise RuntimeError(f"Invalid mapping file: {ve}")
     except Exception as e:
-        logger.exception(f"CRITICAL: Failed to load or validate mapping file '{mapping_filepath}': {e}")
+        logger.exception(f"CRITICAL: Failed to load or validate mapping file '{mapping_filename}': {e}")
         raise RuntimeError(f"Failed to load mapping file: {e}")
 
     # --- Generate Patient Data File --- #
