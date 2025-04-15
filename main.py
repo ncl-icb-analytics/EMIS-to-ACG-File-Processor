@@ -556,10 +556,16 @@ class MainWindow(QMainWindow):
         file_key, error = self._identify_file_type(path)
         if file_key:
             if file_key in self.added_files:
-                reply = QMessageBox.question(self, "Replace File?",
-                                           f"A file for type '{file_key}' ({os.path.basename(self.added_files[file_key])}) has already been added.\nDo you want to replace it with {os.path.basename(path)}?",
-                                           QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                                           QMessageBox.StandardButton.No)
+                # Create, style, and show the confirmation dialog
+                msg_box = QMessageBox(self)
+                msg_box.setWindowTitle("Replace File?")
+                msg_box.setIcon(QMessageBox.Icon.Question)
+                msg_box.setText(f"A file for type '{file_key}' ({os.path.basename(self.added_files[file_key])}) has already been added.\nDo you want to replace it with {os.path.basename(path)}?")
+                msg_box.setStyleSheet("QMessageBox { background-color: #ffffff; color: #000000; } QLabel { background-color: #ffffff; color: #000000; }")
+                msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                msg_box.setDefaultButton(QMessageBox.StandardButton.No)
+                reply = msg_box.exec() # Modal call
+
                 if reply == QMessageBox.StandardButton.Yes:
                     self.added_files[file_key] = path
                     logging.info(f"Replaced file for type '{file_key}' with: {path}")
